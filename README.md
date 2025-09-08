@@ -86,19 +86,6 @@ LMS_Report_Generator/
 *   **Detailed Report:** Detailed report of each student which contains completed programs and the percentage of the student.
 *   **CSV Export:** Ready for overall calculation or further data analysis.
 
-## 🤝 Contributing
-
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
-
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
-
 ## 👨‍💻 Author
 
 Veerachinnu – [GitHub Profile](https://github.com/Sri174) *(Assuming "Sri174" is the author's GitHub profile based on the remote URL. Please update if incorrect.)*
