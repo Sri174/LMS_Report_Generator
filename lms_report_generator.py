@@ -3,6 +3,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from io import BytesIO
+import db_manager
+from datetime import datetime
 
 # --- Configuration ---
 # Define the category labels exactly as they should appear in the report
@@ -128,10 +130,10 @@ def calculate_program_completion(df):
         st.write("Please check that the identified columns contain numeric values.")
         return pd.DataFrame()
 
-def process_single_file_current_week(df, week_label="Current_Week"):
+def process_single_file_current_week(df, week_label="Current_Week", selected_grade="All", min_completion_percentage=0):
     """
     Processes a single DataFrame by calculating program completion from Virtual Programming Lab columns
-    and returns a summary DataFrame for the current week.
+    and returns a summary DataFrame for the current week, applying filters.
     """
     # --- STEP 1: Validate Required Columns ---
     required_cols = [FIRST_NAME_COL, LAST_NAME_COL]
@@ -144,43 +146,66 @@ def process_single_file_current_week(df, week_label="Current_Week"):
         st.write("\nAvailable columns in your file:", ", ".join([f'"{col}"' for col in df.columns]))
         return pd.DataFrame(), pd.DataFrame()
 
-    # --- STEP 2: Calculate Program Completion ---
-    detailed_df = calculate_program_completion(df)
-    if detailed_df.empty:
+    # --- STEP 2: Calculate Program Completion (initial, unfiltered detailed data) ---
+    initial_detailed_df = calculate_program_completion(df)
+    if initial_detailed_df.empty:
         return pd.DataFrame(), pd.DataFrame()
 
-    # --- STEP 3: Add calculated percentages to the dataframe ---
-    df['Calculated_Completion'] = detailed_df['Completion Percentage']
-
-    # --- STEP 4: Extract Grade ---
+    # --- STEP 3: Add calculated percentages and grade to the original df for filtering ---
+    df['Calculated_Completion'] = initial_detailed_df['Completion Percentage']
     df['Grade'] = extract_grade(df[LAST_NAME_COL])
-    df_filtered = df[(df['Grade'] >= 6) & (df['Grade'] <= 12)].copy()
 
-    if df_filtered.empty:
-        st.error("No students found in grades 6-12 in the uploaded file.")
+    # --- STEP 4: Apply Grade and Minimum Completion Percentage Filters ---
+    df_filtered_students = df[(df['Grade'] >= 6) & (df['Grade'] <= 12)].copy()
+
+    if selected_grade != "All":
+        df_filtered_students = df_filtered_students[df_filtered_students['Grade'] == selected_grade]
+
+    df_filtered_students = df_filtered_students[df_filtered_students['Calculated_Completion'] >= min_completion_percentage]
+
+    if df_filtered_students.empty:
+        st.warning("No students match the selected filters (Grade and Minimum Completion Percentage).")
         return pd.DataFrame(), pd.DataFrame()
 
-    # --- STEP 5: Categorize Each Student Based on Calculated Percentage ---
-    df_filtered['Student_Category'] = categorize_completion_percentage(df_filtered['Calculated_Completion'])
+    # --- STEP 5: Construct the final detailed_df from filtered students ---
+    final_detailed_df = pd.DataFrame({
+        'First Name': df_filtered_students[FIRST_NAME_COL],
+        'Last Name': df_filtered_students[LAST_NAME_COL],
+        'Completed Programs': initial_detailed_df.loc[df_filtered_students.index, 'Completed Programs'].astype(int),
+        'Total Programs': initial_detailed_df.loc[df_filtered_students.index, 'Total Programs'],
+        'Completion Percentage': df_filtered_students['Calculated_Completion'],
+        'Category': categorize_completion_percentage(df_filtered_students['Calculated_Completion'])
+    })
+    
+    # --- STEP 6: Categorize Filtered Students for Summary Table ---
+    df_filtered_students['Student_Category'] = categorize_completion_percentage(df_filtered_students['Calculated_Completion'])
 
-    # --- STEP 6: Create a pivot table for accurate counting ---
+    # --- STEP 7: Create a pivot table for accurate counting ---
     # Create a cross-tabulation of categories vs grades
     cross_tab = pd.crosstab(
-        index=df_filtered['Student_Category'],
-        columns=df_filtered['Grade'],
+        index=df_filtered_students['Student_Category'], # Use df_filtered_students here
+        columns=df_filtered_students['Grade'], # Use df_filtered_students here
         dropna=False
     )
 
-    # Ensure all categories and grades are represented
-    for grade in ALL_GRADES:
-        if grade not in cross_tab.columns:
-            cross_tab[grade] = 0
+    # If a single grade is selected, ensure only that grade column is present
+    if selected_grade != "All":
+        # Ensure the selected grade is in the cross_tab columns, if not, add it with zeros
+        if selected_grade not in cross_tab.columns:
+            cross_tab[selected_grade] = 0
+        # Keep only the selected grade column
+        cross_tab = cross_tab[[selected_grade]]
+    else:
+        # Ensure all grades are represented if "All" is selected
+        for grade in ALL_GRADES:
+            if grade not in cross_tab.columns:
+                cross_tab[grade] = 0
+        # Reorder columns to match grades 6-12
+        cross_tab = cross_tab[ALL_GRADES]
 
-    # Reorder columns to match grades 6-12
-    cross_tab = cross_tab[ALL_GRADES]
-
-    # Add a 'Total' column
-    cross_tab['Total'] = cross_tab.sum(axis=1)
+    # Add a 'Total' column only if "All" grades are selected
+    if selected_grade == "All":
+        cross_tab['Total'] = cross_tab.sum(axis=1)
 
     # Ensure all categories are present, even if empty
     for category in CATEGORY_LABELS_ORDERED[:-1]:  # Exclude 'Total No Of Students'
@@ -194,40 +219,93 @@ def process_single_file_current_week(df, week_label="Current_Week"):
     cross_tab = cross_tab.reindex(CATEGORY_LABELS_ORDERED)
 
     # Reset index to make Category a column
-    summary_df = cross_tab.reset_index().rename(columns={'index': 'Category'})
+    summary_df = cross_tab.reset_index().rename(columns={'index': 'Student_Category'})
+
+    # Format column names to match the desired header format
+    column_mapping = {'Student_Category': 'Student_Category'}
+    if selected_grade != "All":
+        column_mapping[selected_grade] = f'Grade {selected_grade}'
+    else:
+        for grade in ALL_GRADES:
+            column_mapping[grade] = f'Grade {grade}'
+        column_mapping['Total'] = 'Total' # Add 'Total' to mapping only if "All" grades
+    
+    summary_df = summary_df.rename(columns=column_mapping)
 
     # Ensure all column names are strings to avoid mixed type warnings
     summary_df.columns = summary_df.columns.astype(str)
 
-    return summary_df, detailed_df
+    return summary_df, final_detailed_df
+
+def process_two_files_comparison(df1, df2, week1_label, week2_label, selected_grade="All", min_completion_percentage=0):
+    """
+    Processes two DataFrames and creates a comparison report with a multi-level header, applying filters.
+    """
+    summary1, _ = process_single_file_current_week(df1, week1_label, selected_grade, min_completion_percentage)
+    summary2, _ = process_single_file_current_week(df2, week2_label, selected_grade, min_completion_percentage)
+
+    if summary1.empty or summary2.empty:
+        return pd.DataFrame()
+
+    # Set index to Student_Category for merging
+    summary1 = summary1.set_index('Student_Category')
+    summary2 = summary2.set_index('Student_Category')
+
+    # Create a new DataFrame for the comparison
+    comparison_df = pd.DataFrame(index=summary1.index)
+
+    for grade in range(6, 13):
+        col_name = f'Grade {grade}'
+        comparison_df[(col_name, week1_label)] = summary1[col_name]
+        comparison_df[(col_name, week2_label)] = summary2[col_name]
+    
+    comparison_df[('Total', week1_label)] = summary1['Total']
+    comparison_df[('Total', week2_label)] = summary2['Total']
+    
+    comparison_df.columns = pd.MultiIndex.from_tuples(comparison_df.columns)
+    
+    return comparison_df.reset_index()
 
 def to_excel_current_week_correct(df_to_save):
     """Converts the final summary DataFrame to a formatted Excel file."""
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_to_save.to_excel(writer, sheet_name='LMS_Report', index=False)
-        worksheet = writer.sheets['LMS_Report']
-        
-        header_format = writer.book.add_format({
-            'bold': True, 'text_wrap': True, 'valign': 'top', 'align': 'center', 'border': 1
-        })
-        
-        # Write the two-row header structure
-        for col_num, column_title in enumerate(df_to_save.columns.values):
-            if isinstance(column_title, tuple) and len(column_title) == 2:
-                # MultiIndex column for data: (Grade, Week_Label)
-                grade, date = column_title
-                # Write grade (e.g., "9th") in the first header row
-                worksheet.write(0, col_num, f"{grade}th", header_format)
-                # Write date/week label in the second header row
-                worksheet.write(1, col_num, date, header_format)
-            else:
-                # The 'Category' column
-                worksheet.write(0, col_num, column_title, header_format)
-                if column_title == 'Category':
-                    worksheet.merge_range(0, col_num, 1, col_num, column_title, header_format)
+        if isinstance(df_to_save.columns, pd.MultiIndex):
+            # Write the header manually
+            worksheet = writer.add_worksheet('LMS_Report')
+            header_format = writer.book.add_format({
+                'bold': True, 'text_wrap': True, 'valign': 'top', 'align': 'center', 'border': 1
+            })
+
+            # Write the 'Student_Category' header
+            worksheet.merge_range(0, 0, 1, 0, 'Student_Category', header_format)
+
+            # Write the merged headers for the grades
+            col_num = 1
+            for i in range(0, len(df_to_save.columns), 2):
+                grade = df_to_save.columns[i][0]
+                worksheet.merge_range(0, col_num, 0, col_num + 1, grade, header_format)
+                worksheet.write(1, col_num, df_to_save.columns[i][1], header_format)
+                worksheet.write(1, col_num + 1, df_to_save.columns[i+1][1], header_format)
+                col_num += 2
+            
+            # Flatten the MultiIndex columns for writing data
+            # The first column 'Student_Category' is not part of MultiIndex, so handle it separately
+            flattened_df = df_to_save.copy()
+            flattened_df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in flattened_df.columns]
+            
+            # Flatten the MultiIndex columns for writing data
+            # The first column 'Student_Category' is not part of MultiIndex, so handle it separately
+            flattened_df = df_to_save.copy()
+            flattened_df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in flattened_df.columns]
+            
+            # Write the DataFrame data without the header
+            flattened_df.to_excel(writer, sheet_name='LMS_Report', index=False, header=False, startrow=2)
+        else:
+            df_to_save.to_excel(writer, sheet_name='LMS_Report', index=False)
         
         # Set column widths
+        worksheet = writer.sheets['LMS_Report']
         worksheet.set_column('A:Z', 15) 
         
     processed_data = output.getvalue()
@@ -236,6 +314,9 @@ def to_excel_current_week_correct(df_to_save):
 # --- Streamlit App ---
 st.set_page_config(page_title="LMS Report Generator", layout="wide")
 st.title("📊 LMS Course Completion Report Generator (Using Course Total)")
+
+# Initialize the database
+db_manager.init_db()
 
 # --- Instructions ---
 # with st.expander("ℹ️ How to Use This App"):
@@ -250,71 +331,171 @@ st.title("📊 LMS Course Completion Report Generator (Using Course Total)")
 #     4.  **Download:** Download the formatted Excel report.
 #     """)
 
-st.header("📥 Upload Excel File")
-st.subheader("Upload data for the current week")
+st.sidebar.title("Report Options")
+report_type = st.sidebar.radio("Select Report Type", ("Single Week Report", "Two-Week Comparison", "View Saved Reports"))
 
-uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
+# Global filters
+st.sidebar.subheader("Filters")
 
-# Allow user to override the week label
-week_label = st.text_input("Enter Week Label", value="Current_Week")
+report_calculated_date = st.sidebar.date_input("Report Calculated Date", value=pd.to_datetime("today"))
 
-single_summary_df = None
-detailed_df = None
+# Month Filter (Placeholder for future implementation)
+selected_month = st.sidebar.selectbox("Select Month", ["All", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"])
 
-if uploaded_file is not None:
-    try:
-        # Read the uploaded Excel file
-        df_raw = pd.read_excel(uploaded_file)
-        st.write(f"✅ File loaded successfully. Shape: {df_raw.shape}")
-        # st.write("First few rows of your data:")
-        # st.dataframe(df_raw.head()) # Optional: Show raw data snippet
+# Week Filter (Placeholder for future implementation)
+selected_week = st.sidebar.selectbox("Select Week", ["All", "Week 1", "Week 2", "Week 3", "Week 4"])
 
-        # Process the DataFrame
-        single_summary_df, detailed_df = process_single_file_current_week(df_raw, week_label)
+# Grade Filter
+selected_grade = st.sidebar.selectbox("Select Grade", ["All"] + ALL_GRADES)
+
+min_completion_percentage = st.sidebar.number_input(
+    "Minimum Completion Percentage for Students", min_value=0, max_value=100, value=0, step=1
+)
+
+
+if report_type == "Single Week Report":
+    st.header("📥 Upload Excel File for Single Week")
+    uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"], key="single")
+    week_label = st.text_input("Enter Week Label", value="Current_Week")
+
+    summary_df = pd.DataFrame()
+    detailed_df = pd.DataFrame()
+
+    if uploaded_file:
+        try:
+            df_raw = pd.read_excel(uploaded_file)
+            summary_df, detailed_df = process_single_file_current_week(df_raw, week_label, selected_grade, min_completion_percentage)
+            
+            if not summary_df.empty:
+                st.success("✅ Single week report processed successfully!")
+                st.subheader("📊 Preview of Single Week Report:")
+                st.dataframe(summary_df)
+                
+                st.header("💾 Download Report")
+                excel_data = to_excel_current_week_correct(summary_df)
+                st.download_button(
+                    label="📥 Download Single Week Report (Excel)",
+                    data=excel_data,
+                    file_name=f'LMS_Report_{week_label}.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+            
+            if not detailed_df.empty:
+                st.subheader("📋 Detailed Student Completion Report:")
+                # The detailed_df is already filtered by grade and min_completion_percentage in process_single_file_current_week
+                st.dataframe(detailed_df)
+
+            # Save report to database
+            if st.button("💾 Save Single Week Report to Database"):
+                report_id = db_manager.save_report(
+                    report_date=report_calculated_date,
+                    week_label=week_label,
+                    selected_month=selected_month,
+                    selected_week=selected_week,
+                    selected_grade=selected_grade,
+                    min_completion_percentage=min_completion_percentage,
+                    report_type="Single Week Report",
+                    summary_df=summary_df,
+                    detailed_df=detailed_df
+                )
+                st.success(f"Report saved to database with ID: {report_id}")
+
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
+
+
+elif report_type == "View Saved Reports":
+    st.header("📚 View Saved Reports")
+    
+    saved_reports_meta = db_manager.get_saved_reports_metadata()
+
+    if saved_reports_meta.empty:
+        st.info("No reports saved yet. Upload and save a report first!")
+    else:
+        st.subheader("Available Reports:")
+        # Display a selection box for saved reports
+        saved_reports_meta['display_name'] = saved_reports_meta['report_date']
         
-        if not single_summary_df.empty:
-             st.success("✅ File processed successfully!")
-             st.subheader("📊 Preview of Current Week Report:")
-             # Display the report preview, formatting numbers without decimals
-             # Use a container to potentially control width better
-             with st.container():
-                 # Create a copy to avoid modifying the original dataframe
-                 display_df = single_summary_df.copy()
-                 # Format only numeric columns
-                 numeric_cols = display_df.select_dtypes(include=[np.number]).columns
-                 format_dict = {col: "{:.0f}" for col in numeric_cols}
-                 st.dataframe(
-                     display_df.style.format(format_dict, na_rep='0'),
-                     width='stretch' # Makes table use full width of container
-                 )
-             
-             # Display detailed report
-             st.subheader("📋 Detailed Student Completion Report:")
-             st.dataframe(detailed_df)
-        else:
-             st.error("❌ Processing resulted in an empty report. Please check the data and column names.")
-    except Exception as e:
-        st.error(f"❌ An unexpected error occurred processing the file: {e}")
-        st.write(f"Technical details: {type(e).__name__} - {e}")
+        selected_report_id = st.selectbox(
+            "Select a report to view",
+            options=saved_reports_meta['id'],
+            format_func=lambda x: saved_reports_meta[saved_reports_meta['id'] == x]['display_name'].iloc[0]
+        )
 
-st.header("💾 Download Report")
-if single_summary_df is not None and not single_summary_df.empty:
-    # Generate the Excel file data in memory
-    excel_data = to_excel_current_week_correct(single_summary_df)
-    # Provide a download button for the user
-    st.download_button(
-        label="📥 Download Current Week Report (Excel)",
-        data=excel_data, # The binary Excel data
-        file_name=f'LMS_Report_{week_label.replace(" ", "_")}.xlsx', # Suggested filename
-        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' # MIME type for .xlsx
-    )
+        if selected_report_id:
+            summary_meta, summary_df, detailed_df = db_manager.load_report_data(selected_report_id)
+            
 
-if detailed_df is not None and not detailed_df.empty:
-    # Generate the Excel file data for detailed report
-    detailed_excel = to_excel_current_week_correct(detailed_df)  # Reuse the function
-    st.download_button(
-        label="📥 Download Detailed Student Report (Excel)",
-        data=detailed_excel,
-        file_name=f'Detailed_Report_{week_label.replace(" ", "_")}.xlsx',
-        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+            if not summary_df.empty:
+                st.subheader("📊 Saved Summary Report:")
+                st.dataframe(summary_df)
+            else:
+                st.info("No summary data available for this report (e.g., comparison report).")
+
+
+
+elif report_type == "Two-Week Comparison":
+    st.header("📥 Upload Excel Files for Comparison")
+    week1_label = st.text_input("Enter Label for Week 1", value="26-Jul")
+    uploaded_file_1 = st.file_uploader("Choose Excel file for Week 1", type=["xlsx"], key="week1")
+    
+    week2_label = st.text_input("Enter Label for Week 2", value="02-Aug")
+    uploaded_file_2 = st.file_uploader("Choose Excel file for Week 2", type=["xlsx"], key="week2")
+
+    comparison_df = pd.DataFrame()
+    detailed_df1 = pd.DataFrame()
+    detailed_df2 = pd.DataFrame()
+
+    if uploaded_file_1 and uploaded_file_2:
+        try:
+            df1 = pd.read_excel(uploaded_file_1)
+            df2 = pd.read_excel(uploaded_file_2)
+            
+            comparison_df = process_two_files_comparison(df1, df2, week1_label, week2_label, selected_grade, min_completion_percentage)
+            _, detailed_df1 = process_single_file_current_week(df1, week1_label, selected_grade, min_completion_percentage)
+            _, detailed_df2 = process_single_file_current_week(df2, week2_label, selected_grade, min_completion_percentage)
+
+            if not comparison_df.empty:
+                st.success("✅ Comparison report processed successfully!")
+                st.subheader("📊 Preview of Two-Week Comparison Report:")
+                st.dataframe(comparison_df)
+                
+                st.header("💾 Download Report")
+                excel_data = to_excel_current_week_correct(comparison_df)
+                st.download_button(
+                    label="📥 Download Comparison Report (Excel)",
+                    data=excel_data,
+                    file_name='LMS_Comparison_Report.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+            
+            if not detailed_df1.empty and not detailed_df2.empty:
+                st.subheader("📋 Detailed Student Completion Report (Week 1):")
+                st.dataframe(detailed_df1)
+
+                st.subheader("📋 Detailed Student Completion Report (Week 2):")
+                st.dataframe(detailed_df2)
+
+            # Save comparison report to database
+            if st.button("💾 Save Two-Week Comparison Report to Database"):
+                # For comparison reports, the summary_df in db_manager.save_report expects a single-week format.
+                # We need to decide how to store comparison data.
+                # For now, let's save the metadata and indicate it's a comparison report.
+                # The actual comparison_df structure is not directly compatible with summary_report_details table.
+                # A more complex schema or separate table would be needed for full comparison data storage.
+                # For simplicity, we'll save the metadata and the two detailed dataframes.
+                report_id = db_manager.save_report(
+                    report_date=report_calculated_date,
+                    week_label=f"{week1_label} vs {week2_label}", # Combine labels for comparison
+                    selected_month=selected_month,
+                    selected_week=selected_week,
+                    selected_grade=selected_grade,
+                    min_completion_percentage=min_completion_percentage,
+                    report_type="Two-Week Comparison",
+                    summary_df=pd.DataFrame(), # No direct summary_df for comparison in current schema
+                    detailed_df=pd.concat([detailed_df1.assign(Week=week1_label), detailed_df2.assign(Week=week2_label)])
+                )
+                st.success(f"Comparison report metadata saved to database with ID: {report_id}")
+
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
