@@ -1,16 +1,28 @@
-# LMS Report Generator
+# 📊 LMS Report Generator
 
-A robust Python-based application designed to automate the generation of comprehensive reports for Learning Management Systems (LMS). This tool efficiently processes data from Excel files, performs necessary calculations, and manages database interactions to produce accurate and insightful reports.
+A complete report generation system for Learning Management Systems (LMS), built with Python, Streamlit, and SQLite. It enables uploading, parsing, validating, and processing LMS data from Excel sheets, applying specific calculation rules, and generating comprehensive, payroll-ready reports.
 
-## Features
+## ✨ Features
 
-*   **Excel Data Processing:** Seamlessly reads and processes data from various Excel file formats.
-*   **Automated Calculations:** Executes complex calculations based on the processed data to derive key metrics.
-*   **Database Management:** Manages data storage and retrieval, ensuring data integrity and accessibility.
-*   **Customizable Report Generation:** Generates detailed and customizable reports tailored to LMS requirements.
-*   **Modular Design:** Built with a modular structure for easy maintenance and scalability.
+*   **📤 Upload LMS Data Files (Excel):** Easily upload attendance and other relevant data in Excel format.
+*   **⚙️ Parse Data into SQLite:** Efficiently parses uploaded data and stores it in a structured SQLite database for processing.
+*   **✅ Automated Calculations:** Applies complex business logic and calculations to generate accurate metrics and insights.
+*   **📋 Customizable Report Generation:** Generates detailed and customizable reports tailored to specific LMS requirements.
+*   **📊 Reports:**
+    *   Attendance summary per employee
+    *   Detailed month-wise breakdown
+    *   Export to CSV for further analysis or payroll integration.
+*   **🖥 Streamlit Frontend:** Provides an intuitive and modern user interface for seamless interaction.
+*   **🗄 SQLite Database Backend:** Utilizes a robust SQLite database for efficient storage and retrieval of employee and attendance tracking data.
 
-## Installation
+## 🚀 Tech Stack
+
+*   **Frontend:** Streamlit
+*   **Backend:** Python 3.x (based on `requirements.txt`, likely 3.11+)
+*   **Database:** SQLite
+*   **Data Processing:** Pandas, Openpyxl, XlsxWriter
+
+## 📦 Installation
 
 To get a local copy up and running, follow these simple steps.
 
@@ -21,39 +33,56 @@ To get a local copy up and running, follow these simple steps.
 
 ### Steps
 
-1.  **Clone the repository:**
+1.  **Clone Repository:**
     ```bash
     git clone https://github.com/Sri174/LMS_Report_Generator.git
     cd LMS_Report_Generator
     ```
-2.  **Install dependencies:**
+2.  **Create Virtual Environment:**
+    ```bash
+    python -m venv venv
+    # On Windows
+    venv\Scripts\activate
+    # On macOS/Linux
+    source venv/bin/activate
+    ```
+3.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-## Usage
+## ▶️ Usage
 
-To use the LMS Report Generator, you typically run the main report generation script.
+To run the LMS Report Generator as a Streamlit application:
 
 ```bash
-python lms_report_generator.py
+streamlit run lms_report_generator.py
 ```
 
-*(Further instructions on specific command-line arguments or configuration might be needed depending on the application's design. For now, this provides a general starting point.)*
+*(Note: The main script `lms_report_generator.py` is assumed to be the entry point for the Streamlit application. If your Streamlit app is in a different file, please adjust the command accordingly.)*
 
-## Project Structure
+## 📂 Project Structure
 
-*   `calculate_all.py`: Contains functions responsible for performing all necessary calculations on the processed data.
-*   `db_manager.py`: Handles database connection, session management, and high-level database operations.
-*   `db_utils.py`: Provides utility functions for common database interactions, such as data insertion, retrieval, and updates.
-*   `lms_report_generator.py`: The main script that orchestrates the entire report generation process, from data input to final report output.
-*   `process_excel.py`: Manages the reading, parsing, and initial processing of data from Excel files.
-*   `requirements.txt`: Lists all Python dependencies required to run the project.
-*   `test_calculation.py`: Contains unit tests to ensure the correctness of the calculation logic.
-*   `uploads/`: A directory intended for storing uploaded Excel files or other input data.
-*   `.gitignore`: Specifies intentionally untracked files to ignore by Git.
+```
+LMS_Report_Generator/
+├── .gitignore             # Specifies intentionally untracked files to ignore by Git.
+├── calculate_all.py       # Contains functions for performing all necessary calculations on processed data.
+├── db_manager.py          # Handles database connection, session management, and high-level database operations.
+├── db_utils.py            # Provides utility functions for common database interactions (insertion, retrieval, updates).
+├── lms_report_generator.py# The main script orchestrating the report generation process (data input to output).
+├── process_excel.py       # Manages reading, parsing, and initial processing of data from Excel files.
+├── requirements.txt       # Lists all Python dependencies required to run the project.
+├── test_calculation.py    # Contains unit tests to ensure the correctness of the calculation logic.
+└── uploads/               # Directory intended for storing uploaded Excel files or other input data.
+```
 
-## Contributing
+## 📝 Report Highlights
+
+*   **Summary Report:** Total present, absent, leaves, weekly offs per employee.
+*   **Detailed Report:** Day-wise attendance with applied policies and calculated metrics.
+*   **CSV Export:** Ready for payroll processing or further data analysis.
+
+## 🤝 Contributing
 
 Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
@@ -65,3 +94,11 @@ Don't forget to give the project a star! Thanks again!
 3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4.  Push to the Branch (`git push origin feature/AmazingFeature`)
 5.  Open a Pull Request
+
+## 📜 License
+
+This project is licensed under the [Your Chosen License Here] - see the `LICENSE` file for details. *(Please replace `[Your Chosen License Here]` with the actual license, e.g., MIT License, Apache 2.0, etc., and ensure a `LICENSE` file exists in your repository.)*
+
+## 👨‍💻 Author
+
+Kabilesh – [GitHub Profile](https://github.com/Sri174) *(Assuming "Sri174" is the author's GitHub profile based on the remote URL. Please update if incorrect.)*
