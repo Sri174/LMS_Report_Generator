@@ -407,14 +407,24 @@ if report_type == "Single Week Report":
 elif report_type == "View Saved Reports":
     st.header("📚 View Saved Reports")
     
-    saved_reports_meta = db_manager.get_saved_reports_metadata()
+    # Filters for viewing saved reports
+    st.subheader("Filter Saved Reports")
+    view_report_date_filter = st.date_input("Filter by Report Date", value=None, key="view_date_filter")
+    view_week_filter = st.selectbox("Filter by Week", ["All", "Week 1", "Week 2", "Week 3", "Week 4"], key="view_week_filter")
+
+    saved_reports_meta = db_manager.get_saved_reports_metadata(
+        report_date=view_report_date_filter,
+        selected_week=view_week_filter
+    )
 
     if saved_reports_meta.empty:
-        st.info("No reports saved yet. Upload and save a report first!")
+        st.info("No reports saved yet or no reports match the selected filters. Upload and save a report first!")
     else:
         st.subheader("Available Reports:")
         # Display a selection box for saved reports
-        saved_reports_meta['display_name'] = saved_reports_meta['report_date']
+        saved_reports_meta['display_name'] = saved_reports_meta.apply(
+            lambda row: f"{row['report_date']} - {row['week_label']} ({row['report_type']})", axis=1
+        )
         
         selected_report_id = st.selectbox(
             "Select a report to view",
