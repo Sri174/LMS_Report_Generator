@@ -127,11 +127,29 @@ def save_report(report_date, week_label, selected_month, selected_week, selected
     conn.close()
     return summary_report_id
 
-def get_saved_reports_metadata():
-    """Retrieves metadata for all saved reports."""
+def get_saved_reports_metadata(report_date=None, selected_week=None):
+    """
+    Retrieves metadata for all saved reports, with optional filtering by report_date and selected_week.
+    """
     conn = sqlite3.connect(DATABASE_NAME)
-    query = "SELECT id, report_date, week_label, selected_month, selected_week, selected_grade, min_completion_percentage, report_type, timestamp FROM summary_reports ORDER BY timestamp DESC"
-    df = pd.read_sql_query(query, conn)
+    query = "SELECT id, report_date, week_label, selected_month, selected_week, selected_grade, min_completion_percentage, report_type, timestamp FROM summary_reports"
+    conditions = []
+    params = []
+
+    if report_date:
+        conditions.append("report_date = ?")
+        params.append(report_date.strftime('%Y-%m-%d'))
+    
+    if selected_week and selected_week != "All":
+        conditions.append("selected_week = ?")
+        params.append(selected_week)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    
+    query += " ORDER BY timestamp DESC"
+    
+    df = pd.read_sql_query(query, conn, params=params)
     conn.close()
     return df
 
