@@ -88,4 +88,4 @@ LMS_Report_Generator/
 
 ## 👨‍💻 Author
 
-Veerachinnu – [GitHub Profile](https://github.com/Sri174) *(Assuming "Sri174" is the author's GitHub profile based on the remote URL. Please update if incorrect.)*
+Veerachinnu – [GitHub Profile](https://github.com/Sri174)
