@@ -412,10 +412,14 @@ elif report_type == "View Saved Reports":
     view_report_date_filter = st.date_input("Filter by Report Date", value=None, key="view_date_filter")
     view_week_filter = st.selectbox("Filter by Week", ["All", "Week 1", "Week 2", "Week 3", "Week 4"], key="view_week_filter")
 
-    saved_reports_meta = db_manager.get_saved_reports_metadata(
-        report_date=view_report_date_filter,
-        selected_week=view_week_filter
-    )
+    # Prepare filters for the database query
+    db_filters = {}
+    if view_report_date_filter:
+        db_filters['report_date'] = view_report_date_filter
+    if view_week_filter != "All":
+        db_filters['selected_week'] = view_week_filter
+
+    saved_reports_meta = db_manager.get_saved_reports_metadata(**db_filters)
 
     if saved_reports_meta.empty:
         st.info("No reports saved yet or no reports match the selected filters. Upload and save a report first!")

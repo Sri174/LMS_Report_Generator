@@ -1,8 +1,10 @@
 import sqlite3
 import pandas as pd
 from datetime import datetime
+import os
 
-DATABASE_NAME = 'lms_reports.db'
+DATABASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_NAME = os.path.join(DATABASE_DIR, 'lms_reports.db')
 
 def init_db():
     """Initializes the SQLite database and creates tables if they don't exist."""

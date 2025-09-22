@@ -2,6 +2,10 @@
 
 A complete report generation system for Learning Management Systems (LMS), built with Python, Streamlit, and SQLite. It enables uploading, parsing, validating, and processing LMS data from Excel sheets, applying specific calculation rules, and generating comprehensive, payroll-ready reports.
 
+# 🚀 Url
+
+*   **✅ Check the application here:** (https://lmsreportgenerator.streamlit.app/)
+  
 ## ✨ Features
 
 *   **📤 Upload LMS Data Files (Excel):** Easily upload attendance and other relevant data in Excel format.
@@ -78,27 +82,10 @@ LMS_Report_Generator/
 
 ## 📝 Report Highlights
 
-*   **Summary Report:** Total present, absent, leaves, weekly offs per employee.
-*   **Detailed Report:** Day-wise attendance with applied policies and calculated metrics.
-*   **CSV Export:** Ready for payroll processing or further data analysis.
-
-## 🤝 Contributing
-
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
-
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
-
-## 📜 License
-
-This project is licensed under the [Your Chosen License Here] - see the `LICENSE` file for details. *(Please replace `[Your Chosen License Here]` with the actual license, e.g., MIT License, Apache 2.0, etc., and ensure a `LICENSE` file exists in your repository.)*
+*   **Summary Report:** Overall percentage calculation, grade wise calculation, weekly comparison.
+*   **Detailed Report:** Detailed report of each student which contains completed programs and the percentage of the student.
+*   **CSV Export:** Ready for overall calculation or further data analysis.
 
 ## 👨‍💻 Author
 
-Kabilesh – [GitHub Profile](https://github.com/Sri174) *(Assuming "Sri174" is the author's GitHub profile based on the remote URL. Please update if incorrect.)*
+Veerachinnu – [GitHub Profile](https://github.com/Sri174) *(Assuming "Sri174" is the author's GitHub profile based on the remote URL. Please update if incorrect.)*
