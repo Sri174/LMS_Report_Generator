@@ -168,13 +168,18 @@ def process_single_file_current_week(df, week_label="Current_Week", selected_gra
         return pd.DataFrame(), pd.DataFrame()
 
     # --- STEP 5: Construct the final detailed_df from filtered students ---
+    # First sort the students by Last Name and First Name
+    df_filtered_sorted = df_filtered_students.sort_values(by=[LAST_NAME_COL, FIRST_NAME_COL]).copy()
+    
+    # Create the final DataFrame with serial numbers
     final_detailed_df = pd.DataFrame({
-        'First Name': df_filtered_students[FIRST_NAME_COL],
-        'Last Name': df_filtered_students[LAST_NAME_COL],
-        'Completed Programs': initial_detailed_df.loc[df_filtered_students.index, 'Completed Programs'].astype(int),
-        'Total Programs': initial_detailed_df.loc[df_filtered_students.index, 'Total Programs'],
-        'Completion Percentage': df_filtered_students['Calculated_Completion'],
-        'Category': categorize_completion_percentage(df_filtered_students['Calculated_Completion'])
+        'S.No.': range(1, len(df_filtered_sorted) + 1),
+        'First Name': df_filtered_sorted[FIRST_NAME_COL],
+        'Last Name': df_filtered_sorted[LAST_NAME_COL],
+        'Completed Programs': initial_detailed_df.loc[df_filtered_sorted.index, 'Completed Programs'].astype(int),
+        'Total Programs': initial_detailed_df.loc[df_filtered_sorted.index, 'Total Programs'],
+        'Completion Percentage': df_filtered_sorted['Calculated_Completion'],
+        'Category': categorize_completion_percentage(df_filtered_sorted['Calculated_Completion'])
     })
     
     # --- STEP 6: Categorize Filtered Students for Summary Table ---
@@ -382,8 +387,20 @@ if report_type == "Single Week Report":
             
             if not detailed_df.empty:
                 st.subheader("📋 Detailed Student Completion Report:")
-                # The detailed_df is already filtered by grade and min_completion_percentage in process_single_file_current_week
-                st.dataframe(detailed_df)
+                # Display the DataFrame with S.No. as the first column
+                st.dataframe(
+                    detailed_df,
+                    column_config={
+                        'S.No.': st.column_config.NumberColumn(
+                            'S.No.',
+                            format='%d',
+                            disabled=True,
+                            help="Serial Number"
+                        )
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
 
             # Save report to database
             if st.button("💾 Save Single Week Report to Database"):
@@ -485,10 +502,34 @@ elif report_type == "Two-Week Comparison":
             
             if not detailed_df1.empty and not detailed_df2.empty:
                 st.subheader("📋 Detailed Student Completion Report (Week 1):")
-                st.dataframe(detailed_df1)
+                st.dataframe(
+                    detailed_df1,
+                    column_config={
+                        'S.No.': st.column_config.NumberColumn(
+                            'S.No.',
+                            format='%d',
+                            disabled=True,
+                            help="Serial Number"
+                        )
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
 
                 st.subheader("📋 Detailed Student Completion Report (Week 2):")
-                st.dataframe(detailed_df2)
+                st.dataframe(
+                    detailed_df2,
+                    column_config={
+                        'S.No.': st.column_config.NumberColumn(
+                            'S.No.',
+                            format='%d',
+                            disabled=True,
+                            help="Serial Number"
+                        )
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
 
             # Save comparison report to database
             if st.button("💾 Save Two-Week Comparison Report to Database"):
